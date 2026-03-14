@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<html>
+
+<!-- importをしているのでローカルサーバ上で開く必要がある。 -->
+
+<body>
+    <style>
+        #dialog {
+            padding: 10px;
+        }
+
+        #canvas-wrapper {
+            float: left;
+            width: 120px;
+            height: 120px;
+        }
+
+        #status {
+            clear: both;
+        }
+
+        .unavailable {
+            pointer-events: none;
+            background-color: grey;
+        }
+
+        .status-none:before {
+            background-color: white;
+            color: black;
+            content: "please tap start button";
+        }
+
+        .status-human_turn:before {
+            background-color: blue;
+            color: white;
+            content: "your turn";
+        }
+
+        .status-ai_turn:before {
+            background-color: pink;
+            color: black;
+            content: "ai turn";
+        }
+
+        .status-human_win:before {
+            background-color: lime;
+            color: black;
+            content: "you win !";
+        }
+
+        .status-ai_win:before {
+            background-color: purple;
+            color: white;
+            content: "AI win !";
+        }
+
+        .status-tie_win:before {
+            background-color: white;
+            color: black;
+            content: "draw!"
+        }
+    </style>
+    <div id="dialog" title="Gomoku">
+        <div id="canvas-wrapper">
+            <canvas id="dlg-canvas"></canvas>
+        </div>
+        <button id="start">Start</button>
+        <div id="status"></div>
+    </div>
+    <script type="module">
+
+        import { next_ai } from "./gomoku_ai.js";
+
+
+        let websocket = undefined;
+        const dtool = {
+            "ctx": undefined,
+            "params": undefined,
+            "values": undefined,
+            "screen_width": undefined,
+            "screen_height": undefined,
+            "turn": 0,
+            "init": function (params) {
+                this.params = params;
+                const canvas = document.getElementById(this.params.canvas_id);
+                this.ctx = canvas.getContext('2d');
+                canvas.addEventListener("click", e => this.onClick(e), false);
+                document.getElementById(this.params.canvas_id).width = document.getElementById(this.params.canvas_wrapper_id).clientWidth;
+                document.getElementById(this.params.canvas_id).height = document.getElementById(this.params.canvas_wrapper_id).clientHeight;
+
+                this.screen_width = canvas.width;
+                this.screen_height = canvas.height;
+                this.params.cell_width = Math.trunc(canvas.width / this.params.cell_size);
+                this.params.cell_height = Math.trunc(canvas.height / this.params.cell_size);
+                this.setTurn(0);
+                const button_start = document.getElementById(this.params.start_id);
+                button_start.addEventListener("click", e => this.onStart(e), false);
+                this.clear();
+            },
+            "clear": function () {
+                this.ctx.clearRect(0, 0, this.screen_width, this.screen_height);
+                this.values = Array(this.params.cell_size * this.params.cell_size).fill(0);
+                this.setTurn(0);
+                this.draw();
+            },
+            "start": function () {
+                if (websocket !== undefined) {
+                    websocket.send(JSON.stringify({ action: "reset" }));
+                }
+                this.setTurn(this.params.first_turn);
+                this.draw();
+            },
+            "setTurn": function (t) {
+                if (t == -1) {
+                    document.getElementById("start").classList.add("unavailable");
+                    this.next_ai();
+                } else {
+                    document.getElementById("start").classList.remove("unavailable");
+                }
+                this.turn = t;
+            },
+            "onStart": function (e) {
+                this.clear();
+                this.start();
+            },
+            "onClick": function (e) {
+                // console.log("onClick", this.turn)
+                if (this.turn == 1) {
+                    const rect = e.target.getBoundingClientRect();
+                    const x = e.clientX - rect.left;
+                    const y = e.clientY - rect.top;
+                    const isin = function (v, st, l) {
+                        return v >= st && v <= (st + l);
+                    };
+                    if (isin(x, this.params.offset_x, this.params.cell_width * this.params.cell_size) && isin(y, this.params.offset_y, this.params.cell_height * this.params.cell_size)) {
+                        const xi = Math.floor((x - this.params.offset_x) / this.params.cell_width);
+                        const yi = Math.floor((y - this.params.offset_y) / this.params.cell_height);
+                        if (this.values[yi * this.params.cell_size + xi] === 0) {
+                            this.values[yi * this.params.cell_size + xi] = 1;
+                            const w = this.judge(this.params.n_pieces);
+                            this.setTurn(w.player === 0 ? (this.tie() ? 10 : -1) : w.player * 2);
+                            this.draw();
+                        }
+                    }
+                }
+            },
+            "tie": function () {
+                return this.values.indexOf(0) == -1;
+            },
+            "judge": function (num_chain) {
+                const sz = this.params.cell_size;
+                const nc = num_chain;
+                const xy2i = function (x, y) { return y * sz + x; };
+                const is_in = function (a) {
+                    return a[0] >= 0 && a[1] >= 0 && a[0] < sz && a[1] < sz;
+                };
+                const index = [...Array(sz).keys()];
+                const xindex0 = [...Array(sz * 2 - 1).keys()].map(x => x - sz + 1);
+                const xindex1 = [...Array(sz * 2 - 1).keys()].map(x => sz * 2 - 2 - x);
+                const p = [
+                    index.map(x => index.map(y => [x, y])),
+                    index.map(y => index.map(x => [x, y])),
+                    xindex0.map(x => index.map(y => [x + y, y]).filter(a => is_in(a))).filter(a => a.length >= nc),
+                    xindex1.map(x => index.map(y => [x - y, y]).filter(a => is_in(a))).filter(a => a.length >= nc),
+                ];
+                const self = this;
+                const count = function (p) {
+                    for (let i in p) {
+                        const counter = { "1": 0, "-1": 0 };
+                        const max_counter = { "1": 0, "-1": 0 };
+                        for (let j in p[i]) {
+                            const v = self.values[xy2i(p[i][j][0], p[i][j][1])];
+                            if (v in counter) {
+                                counter[v]++;
+                                counter[v == 1 ? "-1" : "1"] = 0;
+                                max_counter[v] = Math.max(max_counter[v], counter[v]);
+                            } else {
+                                counter["1"] = 0;
+                                counter["-1"] = 0;
+                            }
+                        }
+                        for (let k in max_counter) {
+                            if (max_counter[k] >= nc) {
+                                return { "player": Number(k), "chains": max_counter[k] };
+                            }
+                        }
+                    }
+                    return { "player": 0 };
+                };
+                let w;
+                for (let i in p) {
+                    w = count(p[i]);
+                    if (0 !== w.player) {
+                        break;
+                    }
+                }
+                return w;
+            },
+            "draw": function () {
+                const x = this.params.cell_size;
+                const y = this.params.cell_size;
+                for (let xi = 0; xi < x; xi++) {
+                    for (let yi = 0; yi < y; yi++) {
+                        let v = this.values[yi * x + xi];
+                        const px = xi * this.params.cell_width + this.params.offset_x;
+                        const py = yi * this.params.cell_height + this.params.offset_y;
+                        if (v == 1) {
+                            this.ctx.fillStyle = "blue";
+                            this.ctx.fillRect(px, py, this.params.cell_width, this.params.cell_height);
+                            this.ctx.fillStyle = "black";
+                        } else if (v == -1) {
+                            this.ctx.fillStyle = "pink";
+                            this.ctx.fillRect(px, py, this.params.cell_width, this.params.cell_height);
+                            this.ctx.fillStyle = "black";
+
+                        }
+                        this.ctx.strokeRect(px, py, this.params.cell_width, this.params.cell_height);
+                    }
+                }
+                const tnames = ["none", "human_turn", "human_win", "ai_turn", "ai_win", "tie_win"];
+                // tnames.map(c => $("#" + this.params.status_id).removeClass("status-" + c));
+                tnames.map(c => document.getElementById(this.params.status_id).classList.remove("status-" + c));
+                const tname = tnames[[0, 1, 2, -1, -2, 10].indexOf(this.turn)];
+                // $("#" + this.params.status_id).addClass("status-" + tname);
+                document.getElementById(this.params.status_id).classList.add("status-" + tname);
+                const winner = tname.match(/_win$/);
+                if (websocket !== undefined && null !== winner) {
+                    websocket.send(JSON.stringify({ action: "gameset", "winner": winner.input.substring(0, winner.index) }));
+                }
+            },
+            "play": function (pos) {
+                this.values[pos] = -1;
+                const w = this.judge(this.params.n_pieces);
+                this.setTurn(w.player === 0 ? (this.tie() ? 10 : 1) : w.player * 2);
+                this.draw();
+            },
+            "next_ai": function () {
+                let params = { data: this.values.join(), };
+                if (websocket === undefined) {
+                    const self = this;
+                    (async function () {
+                        await new Promise(resolve => setTimeout(resolve, 1));
+                        const result = next_ai(params);
+                        self.play(result);
+                    })();
+                } else {
+                    websocket.send(JSON.stringify(Object.assign({ action: "next" }, params)));
+                }
+            },
+        }
+        dtool.init({
+            first_turn: -1,
+            cell_size: 8,
+            n_pieces: 4,
+            canvas_id: "dlg-canvas",
+            canvas_wrapper_id: "canvas-wrapper",
+            start_id: "start",
+            status_id: "status",
+            offset_x: 0,
+            offset_y: 0,
+            cell_width: undefined,
+            cell_height: undefined,
+        });
+        if (websocket === undefined) {
+        } else {
+            websocket.onopen = function (event) {
+                websocket.onmessage = function (event) {
+                    data = JSON.parse(event.data);
+                    if (data.type === "action") {
+                        var out = Number(data.place);
+                        dtool.play(out);
+                    } else if (data.type === "users") {
+
+                    } else if (data.type === "state") {
+                        for (var k of Object.entries(data).filter(x => x[0] != "type")) {
+                            // $("#" + k[0]).text(k[1]);
+                            document.getElementById(k[0]).textContent = k[1];
+                        }
+                    }
+                };
+            };
+        }
+    </script>
+
+</body>
+
+</html>

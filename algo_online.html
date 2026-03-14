@@ -1,0 +1,640 @@
+<!DOCTYPE html>
+<html lang="ja">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Algo Game Prototype - V7</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        :root {
+            --card-w: 42px;
+            --card-h: 63px;
+            --card-gap: 6px;
+            --anim-speed: 0.6s;
+        }
+
+        body {
+            touch-action: none;
+            overflow: hidden;
+            position: fixed;
+            width: 100%;
+            height: 100%;
+        }
+
+        #version-display {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            font-size: 10px;
+            color: #888;
+            font-family: monospace;
+            z-index: 1000;
+            background: rgba(255, 255, 255, 0.8);
+            padding: 1px 4px;
+            border-radius: 4px;
+        }
+
+        .game-container {
+            max-width: 600px;
+            margin: 0 auto;
+            perspective: 1000px;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            padding: env(safe-area-inset-top) 0 env(safe-area-inset-bottom) 0;
+        }
+
+        .hand-area {
+            position: relative;
+            height: 90px;
+            width: 100%;
+            background: rgba(0, 0, 0, 0.03);
+            overflow-x: auto;
+            overflow-y: hidden;
+            white-space: nowrap;
+            -webkit-overflow-scrolling: touch;
+            scrollbar-width: none;
+        }
+
+        .hand-area::-webkit-scrollbar {
+            display: none;
+        }
+
+        .hand-inner {
+            position: relative;
+            min-width: 100%;
+            height: 100%;
+        }
+
+        .card {
+            width: var(--card-w);
+            height: var(--card-h);
+            position: absolute;
+            transition: transform var(--anim-speed) cubic-bezier(0.4, 0, 0.2, 1),
+                left var(--anim-speed) cubic-bezier(0.4, 0, 0.2, 1),
+                top var(--anim-speed) cubic-bezier(0.4, 0, 0.2, 1);
+            cursor: pointer;
+            z-index: 10;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+
+        .card-inner {
+            position: relative;
+            width: 100%;
+            height: 100%;
+            transition: transform var(--anim-speed) ease-in-out;
+            transform-style: preserve-3d;
+            pointer-events: none;
+        }
+
+        .card.is-flipped .card-inner {
+            transform: rotateY(180deg);
+        }
+
+        .card-front,
+        .card-back {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            backface-visibility: hidden;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.1rem;
+            font-weight: bold;
+            border-radius: 5px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            border: 1px solid rgba(0, 0, 0, 0.1);
+        }
+
+        .temp-reveal .peek-num {
+            display: block !important;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            opacity: 0.35;
+            z-index: 5;
+        }
+
+        .white.temp-reveal .peek-num {
+            color: #1a1a1a;
+        }
+
+        .black.temp-reveal .peek-num {
+            color: #ffffff;
+        }
+
+        .card-front {
+            transform: rotateY(180deg);
+        }
+
+        .card.white .card-front {
+            background: #ffffff;
+            color: #1a1a1a;
+        }
+
+        .card.white .card-back {
+            background: #f3f4f6;
+            border: 1px solid #d1d5db;
+        }
+
+        .card.black .card-front {
+            background: #1a1a1a;
+            color: #ffffff;
+        }
+
+        .card.black .card-back {
+            background: #374151;
+            border: 1px solid #111827;
+        }
+
+        .deck-area {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 20px;
+            height: 100px;
+            position: relative;
+        }
+
+        .deck-visual-container {
+            position: relative;
+            width: var(--card-w);
+            height: var(--card-h);
+            cursor: pointer;
+        }
+
+        .deck-layer {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            border-radius: 5px;
+            border: 1px solid rgba(0, 0, 0, 0.2);
+            pointer-events: none;
+        }
+
+        .deck-layer.white {
+            background: #f3f4f6;
+        }
+
+        .deck-layer.black {
+            background: #374151;
+        }
+
+        .btn-action {
+            padding: 6px 12px;
+            border-radius: 9999px;
+            font-weight: bold;
+            font-size: 12px;
+        }
+
+        .dragging {
+            z-index: 100 !important;
+            transition: none !important;
+            transform: scale(1.1);
+        }
+
+        .target-highlight {
+            box-shadow: 0 0 10px #f59e0b !important;
+            border-color: #f59e0b !important;
+        }
+
+        .unsettled-pos {
+            position: absolute;
+            left: 5%;
+            width: var(--card-w);
+            height: var(--card-h);
+            border: 2px dashed #ccc;
+            border-radius: 5px;
+        }
+
+        #action-controls {
+            position: absolute;
+            right: 5%;
+            top: 50%;
+            transform: translateY(-50%);
+        }
+    </style>
+</head>
+
+<body class="bg-stone-100">
+
+    <div id="version-display">v7</div>
+
+    <div class="game-container">
+        <div id="enemy-hand-ui" class="hand-area">
+            <div id="enemy-hand-inner" class="hand-inner"></div>
+        </div>
+
+        <div class="deck-area">
+            <div class="unsettled-pos" id="unsettled-spot"></div>
+            <div id="deck-btn" class="deck-visual-container"></div>
+
+            <div id="action-controls" class="hidden flex flex-col items-center gap-2">
+                <div class="flex gap-2 bg-white p-2 rounded-xl shadow-lg border-2 border-amber-500">
+                    <input type="number" id="guess-input" inputmode="numeric"
+                        class="w-10 p-1 rounded border-2 border-gray-300 text-center font-bold text-lg" placeholder="?">
+                    <button id="attack-btn" class="btn-action bg-amber-500 text-white">ATTACK</button>
+                </div>
+                <button id="stay-btn" class="hidden btn-action bg-stone-700 text-white">STAY</button>
+            </div>
+        </div>
+
+        <div id="log"
+            class="text-xs px-4 text-center font-bold h-8 flex items-center justify-center text-stone-600 italic">山札をタップ
+        </div>
+
+        <div id="player-hand-ui" class="hand-area">
+            <div id="player-hand-inner" class="hand-inner"></div>
+        </div>
+    </div>
+
+    <script>
+        let deck = [];
+        let playerHand = [];
+        let enemyHand = [];
+        let unsettledCard = null;
+        let phase = 'INIT';
+        let turn = 'player';
+        let targetCard = null;
+        let dealerCards = [];
+
+        let isDragging = false;
+        let dragOffset = { x: 0, y: 0 };
+        let currentDragEl = null;
+
+        const UI = {
+            log: document.getElementById('log'),
+            deckBtn: document.getElementById('deck-btn'),
+            playerArea: document.getElementById('player-hand-ui'),
+            playerInner: document.getElementById('player-hand-inner'),
+            enemyArea: document.getElementById('enemy-hand-ui'),
+            enemyInner: document.getElementById('enemy-hand-inner'),
+            controls: document.getElementById('action-controls'),
+            attackBtn: document.getElementById('attack-btn'),
+            stayBtn: document.getElementById('stay-btn'),
+            guessInput: document.getElementById('guess-input'),
+            spot: document.getElementById('unsettled-spot')
+        };
+
+        function adjustCardSizes() {
+            const screenWidth = window.innerWidth;
+            const cardW = Math.min(50, Math.floor(screenWidth / 8.5));
+            const cardH = Math.floor(cardW * 1.5);
+            document.documentElement.style.setProperty('--card-w', `${cardW}px`);
+            document.documentElement.style.setProperty('--card-h', `${cardH}px`);
+        }
+
+        function createDeck() {
+            const d = [];
+            ['black', 'white'].forEach(color => {
+                for (let i = 0; i <= 11; i++) d.push({ id: `${color}-${i}`, value: i, color, isFaceUp: false });
+            });
+            return d.sort(() => Math.random() - 0.5);
+        }
+
+        function updateDeckVisual() {
+            UI.deckBtn.innerHTML = '';
+            const visibleCount = Math.min(deck.length, 5);
+            for (let i = 0; i < visibleCount; i++) {
+                const layer = document.createElement('div');
+                layer.className = `deck-layer ${deck[deck.length - 1 - i].color}`;
+                layer.style.transform = `translate(${i * 1.5}px, ${i * -1.5}px)`;
+                layer.style.zIndex = visibleCount - i;
+                UI.deckBtn.appendChild(layer);
+            }
+        }
+
+        // 基本ルール: 数字の昇順。同じ数字なら黒が小(左)。
+        // 引数 rev が true の場合は降順（相手視点での昇順）にする。
+        function sortHand(hand, rev = false) {
+            return hand.sort((a, b) => {
+                let res = 0;
+                if (a.value !== b.value) res = a.value - b.value;
+                else res = (a.color === 'black' ? -1 : 1);
+                return rev ? -res : res;
+            });
+        }
+
+        function getSortIndex(hand, newCard, rev = false) {
+            let temp = [...hand, newCard];
+            sortHand(temp, rev);
+            return temp.indexOf(newCard);
+        }
+
+        function updateHandUI(options = {}) {
+            const baseCardW = parseInt(getComputedStyle(document.documentElement).getPropertyValue('--card-w'));
+            const gap = 6;
+
+            // プレイヤー手札 (左から小さい順)
+            const pCount = playerHand.length + (options.playerOffset ? 1 : 0);
+            const pTotalWidth = pCount * (baseCardW + gap);
+            UI.playerInner.style.width = `${Math.max(window.innerWidth, pTotalWidth + 40)}px`;
+
+            playerHand.forEach((card, idx) => {
+                const el = getCardEl(card, UI.playerInner);
+                let offset = (options.playerOffset && idx >= options.playerOffsetIdx) ? (baseCardW + gap) : 0;
+                el.style.left = `${20 + (idx * (baseCardW + gap)) + offset}px`;
+                el.style.top = '12px';
+                el.classList.add('temp-reveal');
+                card.isFaceUp ? el.classList.add('is-flipped') : el.classList.remove('is-flipped');
+            });
+
+            // 相手手札 (対面設定: 右から小さい順 = 自分から見て右が小さい)
+            const eCount = enemyHand.length + (options.enemyOffset ? 1 : 0);
+            const eTotalWidth = eCount * (baseCardW + gap);
+            UI.enemyInner.style.width = `${Math.max(window.innerWidth, eTotalWidth + 40)}px`;
+
+            enemyHand.forEach((card, idx) => {
+                const el = getCardEl(card, UI.enemyInner);
+                // 対面なので左からインデックス0が一番大きい数字になる(降順表示)
+                let offset = (options.enemyOffset && idx >= options.enemyOffsetIdx) ? (baseCardW + gap) : 0;
+                el.style.left = `${20 + (idx * (baseCardW + gap)) + offset}px`;
+                el.style.top = '12px';
+                el.classList.remove('temp-reveal');
+                card.isFaceUp ? el.classList.add('is-flipped') : el.classList.remove('is-flipped');
+            });
+
+            if (unsettledCard && !isDragging && !options.isSettling) {
+                const uEl = getCardEl(unsettledCard, document.body);
+                if (phase === 'DRAWN') {
+                    const spotRect = UI.spot.getBoundingClientRect();
+                    uEl.style.left = `${spotRect.left}px`;
+                    uEl.style.top = `${spotRect.top}px`;
+                }
+                uEl.classList.add('temp-reveal');
+                unsettledCard.isFaceUp ? uEl.classList.add('is-flipped') : uEl.classList.remove('is-flipped');
+            }
+        }
+
+        function getCardEl(card, area) {
+            let el = document.getElementById(card.id);
+            if (!el) {
+                el = document.createElement('div');
+                el.id = card.id;
+                el.className = `card ${card.color}`;
+                el.innerHTML = `
+                <div class="card-inner">
+                    <div class="card-front">${card.value}</div>
+                    <div class="card-back"><div class="peek-num" style="display:none">${card.value}</div></div>
+                </div>`;
+                el.onmousedown = (e) => handleStart(e.clientX, e.clientY, card);
+                el.addEventListener('touchstart', (e) => {
+                    if (e.touches.length > 1) return;
+                    if (phase === 'DRAWN' && turn === 'player' && card === unsettledCard) {
+                        e.preventDefault();
+                        handleStart(e.touches[0].clientX, e.touches[0].clientY, card);
+                    }
+                }, { passive: false });
+                area.appendChild(el);
+            }
+            if (el.parentElement !== area && !isDragging) area.appendChild(el);
+            return el;
+        }
+
+        function handleStart(clientX, clientY, card) {
+            if (phase !== 'DRAWN' || turn === 'enemy' || card !== unsettledCard) return;
+            UI.stayBtn.classList.add('hidden');
+            isDragging = true;
+            currentDragEl = document.getElementById(card.id);
+            currentDragEl.classList.add('dragging');
+            const rect = currentDragEl.getBoundingClientRect();
+            dragOffset.x = clientX - rect.left;
+            dragOffset.y = clientY - rect.top;
+            const onMove = (x, y) => {
+                if (!isDragging || !currentDragEl) return;
+                currentDragEl.style.left = `${x - dragOffset.x}px`;
+                currentDragEl.style.top = `${y - dragOffset.y}px`;
+                enemyHand.forEach(c => {
+                    const cEl = document.getElementById(c.id);
+                    if (!c.isFaceUp && isOverlapping(currentDragEl, cEl)) cEl.classList.add('target-highlight');
+                    else cEl.classList.remove('target-highlight');
+                });
+            };
+            const onEnd = () => {
+                if (!isDragging) return;
+                isDragging = false;
+                document.removeEventListener('mousemove', mouseMoveHandler);
+                document.removeEventListener('mouseup', endHandler);
+                document.removeEventListener('touchmove', touchMoveHandler);
+                document.removeEventListener('touchend', endHandler);
+                currentDragEl.classList.remove('dragging');
+                const hit = enemyHand.find(c => !c.isFaceUp && isOverlapping(currentDragEl, document.getElementById(c.id)));
+                if (hit) {
+                    targetCard = hit;
+                    phase = 'ATTACKING';
+                    const tEl = document.getElementById(hit.id);
+                    const tRect = tEl.getBoundingClientRect();
+                    currentDragEl.style.left = `${tRect.left}px`;
+                    currentDragEl.style.top = `${tRect.top + tRect.height + 15}px`;
+                    UI.log.innerText = "数字を予想してください";
+                    UI.controls.classList.remove('hidden');
+                    UI.guessInput.focus();
+                } else {
+                    updateHandUI();
+                }
+                currentDragEl = null;
+            };
+            const mouseMoveHandler = (e) => onMove(e.clientX, e.clientY);
+            const touchMoveHandler = (e) => { if (e.cancelable) e.preventDefault(); onMove(e.touches[0].clientX, e.touches[0].clientY); };
+            const endHandler = () => onEnd();
+            document.addEventListener('mousemove', mouseMoveHandler);
+            document.addEventListener('mouseup', endHandler);
+            document.addEventListener('touchmove', touchMoveHandler, { passive: false });
+            document.addEventListener('touchend', endHandler);
+        }
+
+        function isOverlapping(el1, el2) {
+            const r1 = el1.getBoundingClientRect();
+            const r2 = el2.getBoundingClientRect();
+            const center1X = r1.left + r1.width / 2;
+            const center1Y = r1.top + r1.height / 2;
+            return (center1X > r2.left && center1X < r2.right && center1Y > r2.top - 20 && center1Y < r2.bottom + 80);
+        }
+
+        async function onDeckClick() {
+            if (phase === 'INIT') {
+                phase = 'DEALER_WAIT';
+                deck = createDeck();
+                updateDeckVisual();
+                const pCard = deck.pop();
+                const pEl = getCardEl(pCard, document.body);
+                pEl.style.left = '45%'; pEl.style.top = '80%';
+                dealerCards.push({ data: pCard, el: pEl });
+                await wait(800);
+                const eCard = deck.pop();
+                const eEl = getCardEl(eCard, document.body);
+                eEl.style.left = '45%'; eEl.style.top = '10%';
+                dealerCards.push({ data: eCard, el: eEl });
+                await wait(800);
+                dealerCards.forEach(c => { c.data.isFaceUp = true; c.el.classList.add('is-flipped'); });
+                await wait(1500);
+
+                // 親決めロジック（整列ルール：より「左(小)」に来るカードを引いた方が先手）
+                const pVal = pCard.value * 2 + (pCard.color === 'black' ? 0 : 1);
+                const eVal = eCard.value * 2 + (eCard.color === 'black' ? 0 : 1);
+                turn = (pVal < eVal) ? 'player' : 'enemy';
+
+                UI.log.innerText = `${turn === 'player' ? 'あなた' : '相手'}の先行です！`;
+                await wait(1500);
+                dealerCards.forEach(c => c.el.remove());
+                dealerCards = [];
+                phase = 'SETUP';
+                for (let i = 0; i < 4; i++) {
+                    playerHand.push(deck.pop()); enemyHand.push(deck.pop());
+                    updateDeckVisual(); updateHandUI(); await wait(300);
+                }
+                sortHand(playerHand, false); sortHand(enemyHand, true);
+                updateHandUI();
+                if (turn === 'player') { phase = 'TURN_START'; UI.log.innerText = "山札をタップしてドロー"; }
+                else { enemyTurn(); }
+            } else if (phase === 'TURN_START' && turn === 'player') {
+                unsettledCard = deck.pop();
+                updateDeckVisual();
+                phase = 'DRAWN';
+                updateHandUI();
+                UI.log.innerText = "カードをドラッグしてアタック";
+            }
+        }
+
+        UI.attackBtn.onclick = async () => {
+            const guess = parseInt(UI.guessInput.value);
+            if (isNaN(guess)) return;
+            UI.controls.classList.add('hidden');
+            UI.guessInput.value = '';
+            if (targetCard.value === guess) {
+                UI.log.innerText = "的中！";
+                targetCard.isFaceUp = true;
+                document.getElementById(targetCard.id).classList.remove('target-highlight');
+                updateHandUI();
+                await wait(1000);
+                checkWin();
+                if (phase !== 'GAMEOVER') {
+                    UI.log.innerText = "続行するか、ステイしてください";
+                    UI.stayBtn.classList.remove('hidden');
+                    UI.controls.classList.remove('hidden');
+                    phase = 'DRAWN';
+                }
+            } else {
+                UI.log.innerText = `失敗...`;
+                unsettledCard.isFaceUp = true;
+                document.getElementById(targetCard.id).classList.remove('target-highlight');
+                updateHandUI();
+                await wait(1200);
+                await settleCardAnimation();
+                endTurn();
+            }
+        };
+
+        UI.stayBtn.onclick = async () => {
+            UI.stayBtn.classList.add('hidden');
+            UI.controls.classList.add('hidden');
+            await settleCardAnimation();
+            endTurn();
+        };
+
+        async function settleCardAnimation() {
+            if (!unsettledCard) return;
+            const isPlayer = (turn === 'player');
+            const hand = isPlayer ? playerHand : enemyHand;
+            const inner = isPlayer ? UI.playerInner : UI.enemyInner;
+            const rev = !isPlayer; // 相手は降順
+
+            const insertIdx = getSortIndex(hand, unsettledCard, rev);
+            const options = isPlayer ? { playerOffset: true, playerOffsetIdx: insertIdx, isSettling: true } : { enemyOffset: true, enemyOffsetIdx: insertIdx, isSettling: true };
+
+            updateHandUI(options);
+            await wait(100);
+
+            const el = document.getElementById(unsettledCard.id);
+            const baseCardW = parseInt(getComputedStyle(document.documentElement).getPropertyValue('--card-w'));
+            const gap = 6;
+            const targetX = 20 + (insertIdx * (baseCardW + gap));
+
+            inner.appendChild(el);
+            el.style.left = `${targetX}px`;
+            el.style.top = '12px';
+            await wait(600);
+
+            hand.push(unsettledCard);
+            sortHand(hand, rev);
+            unsettledCard = null;
+            updateHandUI();
+        }
+
+        function endTurn() {
+            targetCard = null;
+            updateHandUI();
+            if (phase !== 'GAMEOVER') { turn = 'enemy'; enemyTurn(); }
+        }
+
+
+        async function enemyTurn() {
+            if (phase === 'GAMEOVER') return;
+            phase = 'ENEMY_TURN';
+            UI.log.innerText = "相手のターンです...";
+            await wait(1200);
+            const eDraw = deck.pop();
+            unsettledCard = eDraw;
+            updateDeckVisual();
+
+            const eEl = getCardEl(eDraw, document.body);
+            const spotRect = UI.spot.getBoundingClientRect();
+            eEl.style.left = `${spotRect.left}px`;
+            eEl.style.top = `${spotRect.top}px`;
+            await wait(1000);
+
+            console.log(playerHand)
+
+            const target = (targets = playerHand.filter(c => !c.isFaceUp))[Math.floor(Math.random() * targets.length)];
+            if (target) {
+                const tEl = document.getElementById(target.id);
+                const tRect = tEl.getBoundingClientRect();
+                eEl.style.left = `${tRect.left}px`;
+                eEl.style.top = `${tRect.top - tRect.height - 20}px`;
+                await wait(1200);
+                const guess = Math.floor(Math.random() * 12);
+                UI.log.innerText = `相手の宣言: ${guess}`;
+                await wait(1000);
+                if (target.value === guess) {
+                    UI.log.innerText = "的中されました！";
+                    target.isFaceUp = true;
+                    updateHandUI();
+                    await wait(1200);
+                    // 相手は的中したら100%ステイすると仮定
+                    await settleCardAnimation();
+                } else {
+                    UI.log.innerText = "相手は失敗しました";
+                    eDraw.isFaceUp = true;
+                    eEl.classList.add('is-flipped');
+                    await wait(1200);
+                    await settleCardAnimation();
+                }
+            } else {
+                await settleCardAnimation();
+            }
+
+            checkWin();
+            if (phase !== 'GAMEOVER') { turn = 'player'; phase = 'TURN_START'; UI.log.innerText = "山札をタップしてドロー"; }
+        }
+
+        function checkWin() {
+            if (enemyHand.every(c => c.isFaceUp)) { UI.log.innerText = "あなたの勝利です！"; phase = 'GAMEOVER'; }
+            else if (playerHand.every(c => c.isFaceUp)) { UI.log.innerText = "相手の勝利です..."; phase = 'GAMEOVER'; }
+        }
+
+        function wait(ms) { return new Promise(res => setTimeout(res, ms)); }
+        adjustCardSizes();
+        deck = createDeck();
+        updateDeckVisual();
+        UI.deckBtn.onclick = onDeckClick;
+        UI.deckBtn.addEventListener('touchstart', (e) => { e.preventDefault(); onDeckClick(); }, { passive: false });
+        window.onresize = () => { adjustCardSizes(); updateHandUI(); };
+    </script>
+</body>
+
+</html>
