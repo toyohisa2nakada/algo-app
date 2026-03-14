@@ -1,10 +1,10 @@
 
 
 // compile
-// npx tsc algo_ai.ts --target esnext --module esnext --moduleResolution bundler --watch
+// npx tsc algo-ai.ts --target esnext --module esnext --moduleResolution bundler --watch
 
 // server (自動更新)
-// npx browser-sync start --server --index "algo_online.html" --files "*.html, *.js"
+// npx browser-sync start --server --index "algo-app.html" --files "*.html, *.js"
 
 type Card = {
     id: string,

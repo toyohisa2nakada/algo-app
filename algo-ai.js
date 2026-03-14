@@ -1,5 +1,5 @@
 // compile
-// npx tsc algo_ai.ts --target esnext --module esnext --moduleResolution bundler --watch
+// npx tsc algo-ai.ts --target esnext --module esnext --moduleResolution bundler --watch
 class Game {
     judge() {
         return 0;
