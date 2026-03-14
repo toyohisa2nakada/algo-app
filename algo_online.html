@@ -253,7 +253,9 @@
         </div>
     </div>
 
-    <script>
+    <script type="module">
+        import { next_ai } from "./algo_ai.js";
+
         let deck = [];
         let playerHand = [];
         let enemyHand = [];
@@ -588,9 +590,11 @@
             eEl.style.top = `${spotRect.top}px`;
             await wait(1000);
 
-            console.log(playerHand)
+            console.log(eDraw, playerHand, enemyHand);
+            next_ai({playerIndex:0});
 
-            const target = (targets = playerHand.filter(c => !c.isFaceUp))[Math.floor(Math.random() * targets.length)];
+            const targets = playerHand.filter(c => !c.isFaceUp);
+            const target = targets[Math.floor(Math.random() * targets.length)];
             if (target) {
                 const tEl = document.getElementById(target.id);
                 const tRect = tEl.getBoundingClientRect();

@@ -1,6 +1,11 @@
-
+// compile
+// npx tsc algo_ai.ts --target esnext --module esnext --moduleResolution bundler --watch
 class Game {
-    judge(state){
+    judge() {
         return 0;
     }
+}
+export function next_ai(state) {
+    console.log("in typescript ", state);
+    return;
 }
