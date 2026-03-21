@@ -1,5 +1,6 @@
 class State {
     constructor(game, s, expand = false) {
+        console.log("constructor", s);
         this.game = game;
         this.s = s;
         this.sa = null;
@@ -21,7 +22,9 @@ class State {
 
     is_finished() {
         // console.log(this)
-        return !this.s.cells.includes(0) || this.game.judge(this.s) !== 0;
+        // return !this.s.cells.includes(0) || this.game.judge(this.s) !== 0;
+        // console.log(this.s);
+        return this.game.is_finished(this.s);
     }
 
     select(css_index = -1) {
@@ -39,6 +42,7 @@ class State {
         const ai = this.sa[i];
         this.na[css_index][i] = Math.floor(this.na[css_index][i] + 1) + Math.random();
 
+        // console.log("select move", this.s, ai);
         const s2 = this.game.move(this.s, ai);
         const cs2 = mtcs.find(s2);
 
@@ -70,12 +74,14 @@ class State {
 
         this.sa = [];
         for (const sa_i of sa_candidate) {
+            // console.log("expand move", this.s, sa_i);
             const s2 = this.game.move(this.s, sa_i);
             if (!already_in(s2)) {
                 sa_candidate_s.push(s2);
                 this.sa.push(sa_i);
             }
         }
+        // console.log("=====",this.sa)
 
         const ns = this.sa.length;
         const na = Array.from({ length: ns }, () => Math.random());
@@ -115,7 +121,7 @@ export class mtcs {
     }
 
     static next_ai(state, n = 7000) {
-        console.log(state)
+        // console.log(state)
         // const cs = new State(mtcs.game, mtcs.game.str2state(state["data"]), true);
         const cs = new State(mtcs.game, state, true);
         cs.set_css_index(0);

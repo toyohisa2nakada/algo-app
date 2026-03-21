@@ -95,6 +95,10 @@ class Game {
         return judge(state.cells);
     }
 
+    is_finished(state) {
+        return !state.cells.includes(0) || judge(state) !== 0;
+    }
+
     compare(state0, state1) {
         return comparator.compare(state0.cells, state1.cells);
     }
@@ -127,17 +131,10 @@ class Game {
         }
         return 0.0;
     }
-
-    // str2state(state_str) {
-    //     return {
-    //         cells: state_str.split(",").map(Number),
-    //         p0_q: -1,
-    //     };
-    // }
 }
 
 import { mtcs } from "./mtcs.js";
 mtcs.game = new Game();
-export function next_ai(state){
-    return mtcs.next_ai({cells:state.data,p0_q:-1});
+export function next_ai(state) {
+    return mtcs.next_ai({ cells: state.data, p0_q: -1 });
 }
