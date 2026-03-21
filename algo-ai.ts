@@ -19,7 +19,7 @@ type State = {
 }
 
 class Game {
-    judge() {
+    judge(state) {
         return 0;
     }
     compare(state0, state1) {
@@ -36,10 +36,16 @@ class Game {
     }
 }
 
-import { mtcs } from "./mtcs.js";
-mtcs.game = new Game();
-export function next_ai(state: State) {
+function next_ai_random(state: State){
     const enemyPlayerId = state.currentPlayerIndex * -1 as PlayerIndex;
     const targets = state.playerHands[enemyPlayerId].filter(c => !c.isFaceUp);
     return targets[Math.floor(Math.random() * targets.length)];
+}
+
+import { mtcs } from "./mtcs.js";
+mtcs.game = new Game();
+
+export function next_ai(state: State) {
+    // return next_ai_random(state);
+    return mtcs.next_ai(state);
 }

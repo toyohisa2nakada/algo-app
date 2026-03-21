@@ -1,7 +1,7 @@
 // compile
 // npx tsc algo-ai.ts --target esnext --module esnext --moduleResolution bundler --watch
 class Game {
-    judge() {
+    judge(state) {
         return 0;
     }
     compare(state0, state1) {
@@ -17,10 +17,14 @@ class Game {
         return 0.0;
     }
 }
-import { mtcs } from "./mtcs.js";
-mtcs.game = new Game();
-export function next_ai(state) {
+function next_ai_random(state) {
     const enemyPlayerId = state.currentPlayerIndex * -1;
     const targets = state.playerHands[enemyPlayerId].filter(c => !c.isFaceUp);
     return targets[Math.floor(Math.random() * targets.length)];
+}
+import { mtcs } from "./mtcs.js";
+mtcs.game = new Game();
+export function next_ai(state) {
+    // return next_ai_random(state);
+    return mtcs.next_ai(state);
 }
