@@ -136,5 +136,5 @@ class Game {
 import { mtcs } from "./mtcs.js";
 mtcs.game = new Game();
 export function next_ai(state) {
-    return mtcs.next_ai({ cells: state.data, p0_q: -1 });
+    return mtcs.next_ai({ cells: state.data, p0_q: -1 }, -1, 10000);
 }

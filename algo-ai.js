@@ -8,7 +8,7 @@ const CARD_NUMBERS = [...Array(12).keys()];
 const ACTION_TYPES = ["attack", "stay"];
 class Game {
     judge(state) {
-        return 0;
+        return PLAYER_IDS.reduce((judge, id) => state.playerHands[id].every(card => card.isFaceUp) ? id * -1 : judge, 0);
     }
     is_finished(state) {
         // ToDo: 山札がなくなったとき、手札の裏のカードを使ってアタックする、というのがalgo-app.htmlの方で実装されていない。よってとりあえず、山札無くなったら終わり
@@ -47,21 +47,37 @@ class Game {
                 state2.firstAttack = false;
             }
             else {
+                // console.log("++ state",state2)
+                // console.log("++ action",action)
                 state2.playerHands[state2.currentPlayerId].filter(card => card.id === state2.drawnCard.id)[0].isFaceUp = true;
-                Game.addCardToHand(state2, state2.deck.pop());
                 state2.currentPlayerId = state.currentEnemyId;
                 state2.currentEnemyId = state.currentPlayerId;
+                Game.addCardToHand(state2, state2.deck.pop());
             }
         }
         else if (action.type === "stay") {
+            // console.log("stay")
             state2.currentPlayerId = state.currentEnemyId;
             state2.currentEnemyId = state.currentPlayerId;
+            Game.addCardToHand(state2, state2.deck.pop());
         }
         // console.log("move", action);
         return state2;
     }
     playout(state) {
-        return 0.0;
+        while (true) {
+            const actions = mtcs.game.actions(state);
+            const targetAction = actions[Math.floor(actions.length * Math.random())];
+            const state2 = mtcs.game.move(state, targetAction);
+            const judge = mtcs.game.judge(state2);
+            if (judge !== 0) {
+                return judge;
+            }
+            if (mtcs.game.is_finished(state2)) {
+                return 0.0;
+            }
+            state = state2;
+        }
     }
     // 新しく引いたカードを盤面状態に反映する(破壊的操作)。
     static addCardToHand(state, drawnCard) {
@@ -76,13 +92,18 @@ class Game {
     }
 }
 function next_ai_random(state) {
-    const targets = state.playerHands[state.currentEnemyId].filter(c => !c.isFaceUp);
-    return targets[Math.floor(Math.random() * targets.length)];
+    // const targets = state.playerHands[state.currentEnemyId].filter(c => !c.isFaceUp);
+    // return { type: "attack", targetCard: targets[Math.floor(Math.random() * targets.length)]!, targetNumber: Math.floor(Math.random() * 12) };
+    const actions = mtcs.game.actions(state);
+    return actions[Math.floor(actions.length * Math.random())];
 }
 import { mtcs } from "./mtcs.js";
 mtcs.game = new Game();
 export function next_ai(state, drawnCard) {
     state.called = PLAYER_IDS.reduce((a, e) => ({ ...a, [e]: [] }), {});
     // return next_ai_random(state);
-    return mtcs.next_ai(Game.addCardToHand(state, drawnCard));
+    const b = next_ai_random(Game.addCardToHand(state, drawnCard));
+    const a = mtcs.next_ai(Game.addCardToHand(state, drawnCard), state.currentPlayerId, 500);
+    console.log(a, b);
+    return a;
 }

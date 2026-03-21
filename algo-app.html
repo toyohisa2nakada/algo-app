@@ -591,25 +591,24 @@
             await wait(1000);
 
             // console.log(eDraw)
-            const target = next_ai({
+            const action = next_ai({
                 currentPlayerId: -1,
                 currentEnemyId: 1,
                 playerHands: { [1]: playerHand, [-1]: enemyHand },
                 deck,
             }, eDraw)
-            // console.log("target", target)
-            if (target) {
-                const tEl = document.getElementById(target.id);
+            if (action) {
+                const tEl = document.getElementById(action.targetCard.id);
                 const tRect = tEl.getBoundingClientRect();
                 eEl.style.left = `${tRect.left}px`;
                 eEl.style.top = `${tRect.top - tRect.height - 20}px`;
                 await wait(1200);
-                const guess = Math.floor(Math.random() * 12);
-                UI.log.innerText = `相手の宣言: ${guess}`;
+                // const guess = Math.floor(Math.random() * 12);
+                UI.log.innerText = `相手の宣言: ${action.targetNumber}`;
                 await wait(1000);
-                if (target.number === guess) {
+                if (action.targetCard.number === action.targetNumber) {
                     UI.log.innerText = "的中されました！";
-                    target.isFaceUp = true;
+                    action.targetCard.isFaceUp = true;
                     updateHandUI();
                     await wait(1200);
                     // 相手は的中したら100%ステイすると仮定
