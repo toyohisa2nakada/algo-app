@@ -12,10 +12,15 @@ type Card = {
     color: string,
     isFaceUp: boolean
 }
-type PlayerIndex = -1 | 1;
+type Action = {
+    targetCard: Card,
+    targetNumber: number,
+}
+type PlayerId = -1 | 1;
 type State = {
-    currentPlayerIndex: number,
-    playerHands: Record<PlayerIndex, Card[]>;
+    currentPlayerId: PlayerId,
+    currentEnemyId: PlayerId,
+    playerHands: Record<PlayerId, Card[]>;
 }
 
 class Game {
@@ -36,9 +41,8 @@ class Game {
     }
 }
 
-function next_ai_random(state: State){
-    const enemyPlayerId = state.currentPlayerIndex * -1 as PlayerIndex;
-    const targets = state.playerHands[enemyPlayerId].filter(c => !c.isFaceUp);
+function next_ai_random(state: State) {
+    const targets = state.playerHands[state.currentEnemyId].filter(c => !c.isFaceUp);
     return targets[Math.floor(Math.random() * targets.length)];
 }
 

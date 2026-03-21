@@ -116,7 +116,8 @@ export class mtcs {
 
     static next_ai(state, n = 7000) {
         console.log(state)
-        const cs = new State(mtcs.game, mtcs.game.str2state(state["data"]), true);
+        // const cs = new State(mtcs.game, mtcs.game.str2state(state["data"]), true);
+        const cs = new State(mtcs.game, state, true);
         cs.set_css_index(0);
         mtcs.css = [cs];
 

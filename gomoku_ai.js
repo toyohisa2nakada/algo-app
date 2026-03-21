@@ -128,16 +128,16 @@ class Game {
         return 0.0;
     }
 
-    str2state(state_str) {
-        return {
-            cells: state_str.split(",").map(Number),
-            p0_q: -1,
-        };
-    }
+    // str2state(state_str) {
+    //     return {
+    //         cells: state_str.split(",").map(Number),
+    //         p0_q: -1,
+    //     };
+    // }
 }
 
 import { mtcs } from "./mtcs.js";
 mtcs.game = new Game();
 export function next_ai(state){
-    return mtcs.next_ai(state);
+    return mtcs.next_ai({cells:state.data,p0_q:-1});
 }

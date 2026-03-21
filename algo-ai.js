@@ -18,8 +18,7 @@ class Game {
     }
 }
 function next_ai_random(state) {
-    const enemyPlayerId = state.currentPlayerIndex * -1;
-    const targets = state.playerHands[enemyPlayerId].filter(c => !c.isFaceUp);
+    const targets = state.playerHands[state.currentEnemyId].filter(c => !c.isFaceUp);
     return targets[Math.floor(Math.random() * targets.length)];
 }
 import { mtcs } from "./mtcs.js";
