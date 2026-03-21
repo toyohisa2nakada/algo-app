@@ -590,11 +590,13 @@
             eEl.style.top = `${spotRect.top}px`;
             await wait(1000);
 
-            console.log(eDraw, playerHand, enemyHand);
-            next_ai({playerIndex:0});
+            // console.log(eDraw, playerHand, enemyHand);
+            // next_ai({playerIndex:0});
 
-            const targets = playerHand.filter(c => !c.isFaceUp);
-            const target = targets[Math.floor(Math.random() * targets.length)];
+            // const targets = playerHand.filter(c => !c.isFaceUp);
+            // const target = targets[Math.floor(Math.random() * targets.length)];
+            const target = next_ai({ currentPlayerIndex: -1, playerHands: { [1]: playerHand, [-1]: enemyHand } })
+            console.log("target",target)
             if (target) {
                 const tEl = document.getElementById(target.id);
                 const tRect = tEl.getBoundingClientRect();
