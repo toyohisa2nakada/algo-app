@@ -254,7 +254,7 @@
     </div>
 
     <script type="module">
-        import { next_ai } from "./algo-ai.js";
+        import { next_ai, init_game } from "./algo-ai.js";
 
         let deck = [];
         let playerHand = [];
@@ -492,6 +492,7 @@
                 }
                 sortHand(playerHand, false); sortHand(enemyHand, true);
                 updateHandUI();
+                init_game();
                 if (turn === 'player') { phase = 'TURN_START'; UI.log.innerText = "山札をタップしてドロー"; }
                 else { enemyTurn(); }
             } else if (phase === 'TURN_START' && turn === 'player') {
