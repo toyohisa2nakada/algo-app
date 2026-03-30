@@ -1,0 +1,98 @@
+@import "tailwindcss";
+
+/* JS から setProperty で動的に書き換えるため CSS 変数は残す */
+:root {
+  --card-w: 42px;
+  --card-h: 63px;
+  --card-gap: 6px;
+  --anim-speed: 1.4s;
+}
+
+/* Tailwind に translate/rotate arbitrary 値がないため最小限残す */
+.card-inner {
+  transition: transform var(--anim-speed) ease-in-out;
+  transform-style: preserve-3d;
+}
+
+.card.is-flipped .card-inner {
+  transform: rotateY(180deg);
+}
+
+.card-front {
+  transform: rotateY(180deg);
+}
+
+.card-front,
+.card-back {
+  backface-visibility: hidden;
+}
+
+/* JS が classList.add('dragging') で付与するクラス */
+.dragging {
+  z-index: 100 !important;
+  transition: none !important;
+  transform: scale(1.1);
+}
+
+/* JS が classList.add('target-highlight') で付与するクラス */
+.target-highlight {
+  box-shadow: 0 0 10px #f59e0b !important;
+  border-color: #f59e0b !important;
+}
+
+/* JS が classList.add('temp-reveal') で付与するクラス */
+.temp-reveal .peek-num {
+  display: block !important;
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  opacity: 0.35;
+  z-index: 5;
+}
+
+.white.temp-reveal .peek-num {
+  color: darkgreen;
+}
+
+.black.temp-reveal .peek-num {
+  color: chartreuse;
+}
+
+/* カード自体の配置アニメーション（left / top を JS が直接書き換えるため） */
+.card {
+  width: var(--card-w);
+  height: var(--card-h);
+  position: absolute;
+  transition:
+    transform var(--anim-speed) cubic-bezier(0.4, 0, 0.2, 1),
+    left var(--anim-speed) cubic-bezier(0.4, 0, 0.2, 1),
+    top var(--anim-speed) cubic-bezier(0.4, 0, 0.2, 1);
+  cursor: pointer;
+  z-index: 10;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+/* デッキのオフセット積み重ね表示 */
+.deck-layer {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  border-radius: 5px;
+  border: 1px solid rgba(0, 0, 0, 0.2);
+  pointer-events: none;
+}
+
+.deck-layer.white {
+  background: #f3f4f6;
+}
+
+.deck-layer.black {
+  background: #374151;
+}
+
+/* スクロールバー非表示 */
+.hand-area::-webkit-scrollbar {
+  display: none;
+}
