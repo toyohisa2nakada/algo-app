@@ -1,1 +1,1 @@
-[pages]( http://algo-app.pecode.com/)
+[pages (cloudflare)]( http://algo-app.pecode.com/)
