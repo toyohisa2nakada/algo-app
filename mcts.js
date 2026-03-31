@@ -38,8 +38,8 @@ class State {
         const cost = (ns, n) => Math.sqrt(2 * Math.log(ns)) / n;
 
         const scores = naArr.map((n, i) =>
-            qaArr[i] * this.pid + mtcs.cp * cost(ns, n)
-            // qaArr[i] * this.s["p0_q"] + mtcs.cp * cost(ns, n)
+            qaArr[i] * this.pid + mcts.cp * cost(ns, n)
+            // qaArr[i] * this.s["p0_q"] + mcts.cp * cost(ns, n)
         );
         // console.log("scores",scores);
         const i = scores.indexOf(Math.max(...scores));
@@ -49,10 +49,10 @@ class State {
 
         // console.log("select move", this.s, ai);
         const s2 = this.game.move(this.s, ai);
-        const cs2 = mtcs.find(s2, this.pid * -1);
+        const cs2 = mcts.find(s2, this.pid * -1);
 
         if (cs2.is_leaf(this.css_index)) {
-            if (!cs2.is_finished() && this.na[css_index][i] >= mtcs.exp_limit) {
+            if (!cs2.is_finished() && this.na[css_index][i] >= mcts.exp_limit) {
                 cs2.expand(this.na[css_index][i], this.qa[css_index][i], this.css_index);
             } else {
                 const n = this.na[css_index][i];
@@ -121,19 +121,19 @@ export class mcts {
     static css = [];
 
     static find(s, pid) {
-        for (const csi of mtcs.css) {
-            if (mtcs.game.compare(csi.s, s)) return csi;
+        for (const csi of mcts.css) {
+            if (mcts.game.compare(csi.s, s)) return csi;
         }
-        const newState = new State(mtcs.game, s, pid);
-        newState.set_css_index(mtcs.css.length);
-        mtcs.css.push(newState);
+        const newState = new State(mcts.game, s, pid);
+        newState.set_css_index(mcts.css.length);
+        mcts.css.push(newState);
         return newState;
     }
 
     static next_ai(state, pid, n = 7000) {
-        const cs = new State(mtcs.game, state, pid, true);
+        const cs = new State(mcts.game, state, pid, true);
         cs.set_css_index(0);
-        mtcs.css = [cs];
+        mcts.css = [cs];
 
         for (let epoch = 0; epoch < n; epoch++) {
             if ((epoch + 1) % 10000 === 0) console.log("epoch ", epoch + 1)
