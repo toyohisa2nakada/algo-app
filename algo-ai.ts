@@ -174,14 +174,14 @@ class Game {
     }
     playout(state: State) {
         while (true) {
-            const actions = mtcs.game.actions(state);
+            const actions = mcts.game.actions(state);
             const targetAction = actions[Math.floor(actions.length * Math.random())];
-            const state2 = mtcs.game.move(state, targetAction);
-            const judge = mtcs.game.judge(state2);
+            const state2 = mcts.game.move(state, targetAction);
+            const judge = mcts.game.judge(state2);
             if (judge !== 0) {
                 return judge;
             }
-            if (mtcs.game.is_finished(state2)) {
+            if (mcts.game.is_finished(state2)) {
                 return 0.0;
             }
             state = state2;
@@ -203,14 +203,14 @@ class Game {
 }
 
 function next_ai_random(state: State): Action {
-    const actions = mtcs.game.actions(state);
+    const actions = mcts.game.actions(state);
     // console.log(actions);
     // return actions[Math.floor(actions.length * Math.random())];
     return actions[0];
 }
 
-import { mtcs } from "./mtcs.js";
-mtcs.game = new Game();
+import { mcts } from "./mcts.js";
+mcts.game = new Game();
 let global_called: Record<PlayerId, Action[]> | null = null;
 
 export function init_game() {
