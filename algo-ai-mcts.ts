@@ -1,24 +1,9 @@
 
-// typescriptのインストール
-//  npm install --save-dev typescript
-// tsconfig.jsonの作成
-//  npx tsc --init
-// browser-syncのインストール
-// npm install --save-dev browser-sync
-
-// compile (tsconfig.jsonを使う)
-// npx tsc --watch
-
-// server (自動更新)
-// npx browser-sync start --server --index "algo-app.html" --files "*.html, *.js"
-
-// 参考文献
-// Mastering Da Vinci Code: A Comparative Study of Transformer, LLM, and PPO-based Agents
-// https://arxiv.org/abs/2506.12801
-//
-// ボードゲーム『アルゴ』における平均情報量を用いた行動選択アルゴリズムの提案
-// https://qiita.com/guglilac/items/7c08a1e6c619b40179ca
-
+/*
+mcts版のalgo-ai
+現在はprobabilityによる一手を選ぶAIと同じ
+2026.05.10
+*/
 
 const PLAYER_IDS = [-1, 1] as const;
 type PlayerId = typeof PLAYER_IDS[number];
@@ -112,6 +97,9 @@ function getSequences(state: State): { possibleNumbers: number[][], sequences: n
             return acc;
         }, {} as { [card_i: number]: number })
     );
+    // console.log("possibleSerialNumbers",possibleSerialNumbers);
+    // console.log("sequences", sequences);
+    // console.log("counts", counts);
     const possibleNumbers = possibleSerialNumbers.map((serials, card_i) => serials.map(v => toNumber(v, targetHand[card_i]!.color)));
 
     return { possibleNumbers, sequences, counts };
@@ -124,27 +112,90 @@ function getActions(state: State): Action[] {
         flatMap(([card, p_numbers, card_i]) => (p_numbers! as number[]).
             map(v => ({ type: "attack", targetCard: card, targetNumber: v, probability: counts![card_i as number]![v]! / sequences.length } as Action)));
 }
-function addCardToHand(state: State, drawnCard: Card | undefined = undefined, firstAttack: boolean | undefined = undefined): State {
-    const pushAndSort = (card: Card, hand: Card[]) =>
-        [...hand, card].sort((e0, e1) => e0.number === e1.number ? (e0.color === "black" ? -1 : 1) : e0.number - e1.number);
-    if (drawnCard) {
-        const hand = state.playerHands[state.currentPlayerId];
-        state.playerHands[state.currentPlayerId] = pushAndSort(drawnCard, hand);
+
+class Game {
+    judge(state: State) {
+        return PLAYER_IDS.reduce((judge, id) => state.playerHands[id].every(card => card.isFaceUp) ? id * -1 : judge, 0);
     }
-    state.drawnCard = drawnCard;
-    state.firstAttack = firstAttack ?? true;
-    return state;
+    is_finished(state: State) {
+        // ToDo: 山札がなくなったとき、手札の裏のカードを使ってアタックする、というのがalgo-app.htmlの方で実装されていない。よってとりあえず、山札無くなったら終わり
+        // return Object.values(state.playerHands).every(cards => cards.some(card => !card.isFaceUp))
+        return state.deck.length === 0;
+    }
+    compare(state0: State, state1: State): boolean {
+        return JSON.stringify(state0) === JSON.stringify(state1);
+    }
+    actions(state: State): Action[] {
+        // ToDo: 山札から引いたカード(drawnCard)をアタック失敗で相手にさらすリスクについても試算していない
+        const actions: Action[] = getActions(state);
+        if (state.firstAttack === false) {
+            actions.push({ type: "stay", probability: 0.4 });
+        }
+        actions.sort((e0, e1) => e1.probability - e0.probability)
+        // console.log("actions", actions);
+        return actions;
+    }
+    move(state: State, action: Action): State {
+        const state2 = JSON.parse(JSON.stringify(state)) as State;
+        state2.called[state2.currentPlayerId].push(action);
+        if (action.type === "attack") {
+            if (action.targetCard!.number === action.targetNumber) {
+                state2.playerHands[state2.currentEnemyId].filter(card => card.id === action.targetCard!.id)[0]!.isFaceUp = true;
+                state2.firstAttack = false;
+            } else {
+                state2.playerHands[state2.currentPlayerId].filter(card => card.id === state2.drawnCard!.id)[0]!.isFaceUp = true;
+                state2.currentPlayerId = state.currentEnemyId;
+                state2.currentEnemyId = state.currentPlayerId;
+                Game.addCardToHand(state2, state2.deck.pop());
+            }
+        } else if (action.type === "stay") {
+            // console.log("stay")
+            state2.currentPlayerId = state.currentEnemyId;
+            state2.currentEnemyId = state.currentPlayerId;
+            Game.addCardToHand(state2, state2.deck.pop());
+        }
+        // console.log("move", action);
+        return state2;
+    }
+    playout(state: State) {
+        while (true) {
+            const actions = mcts.game.actions(state);
+            const targetAction = actions[Math.floor(actions.length * Math.random())];
+            const state2 = mcts.game.move(state, targetAction);
+            const judge = mcts.game.judge(state2);
+            if (judge !== 0) {
+                return judge;
+            }
+            if (mcts.game.is_finished(state2)) {
+                return 0.0;
+            }
+            state = state2;
+        }
+    }
+
+    // 新しく引いたカードを盤面状態に反映する(破壊的操作)。
+    static addCardToHand(state: State, drawnCard: Card | undefined = undefined, firstAttack: boolean | undefined = undefined): State {
+        const pushAndSort = (card: Card, hand: Card[]) =>
+            [...hand, card].sort((e0, e1) => e0.number === e1.number ? (e0.color === "black" ? -1 : 1) : e0.number - e1.number);
+        if (drawnCard) {
+            const hand = state.playerHands[state.currentPlayerId];
+            state.playerHands[state.currentPlayerId] = pushAndSort(drawnCard, hand);
+        }
+        state.drawnCard = drawnCard;
+        state.firstAttack = firstAttack ?? true;
+        return state;
+    }
 }
-function next_ai_probability(state: State): Action {
-    // ToDo: 山札から引いたカード(drawnCard)をアタック失敗で相手にさらすリスクについても試算していない
-    const actions: Action[] = getActions(state);
-    if (state.firstAttack === false) {
-        actions.push({ type: "stay", probability: 0.4 });
-    }
-    actions.sort((e0, e1) => e1.probability - e0.probability)
+
+function next_ai_random(state: State): Action {
+    const actions = mcts.game.actions(state);
+    // console.log(actions);
+    // return actions[Math.floor(actions.length * Math.random())];
     return actions[0];
 }
 
+import { mcts } from "./mcts.js";
+mcts.game = new Game();
 let global_called: Record<PlayerId, Action[]> | null = null;
 
 export function init_game() {
@@ -158,12 +209,19 @@ export function next_ai(state: State, drawnCard: Card, firstAttack: boolean = tr
         throw new Error("please call init_game function before calling next_ai");
     }
     state.called = global_called;
-    const a = next_ai_probability(addCardToHand(state, drawnCard, firstAttack));
+    // AIにとって自分のカードを手札に含めてから処理を実行する(Game.addCardToHand)。
+    const a = next_ai_random(Game.addCardToHand(state, drawnCard, firstAttack));
+    // const a = mtcs.next_ai(Game.addCardToHand(state, drawnCard), state.currentPlayerId, 500);
     global_called[state.currentPlayerId].push(a);
     return a;
 }
 
 export function getAdvantages(state: State): { [playerId: number]: number } {
+    // if (global_called === null) {
+    //     throw new Error("please call init_game function before calling next_ai");
+    // }
+    // state.called = global_called;
+
     console.log("player", JSON.stringify(state.playerHands[1].map(e => [e.id, e.isFaceUp])));
     console.log("enemy ", JSON.stringify(state.playerHands[-1].map(e => [e.id, e.isFaceUp])));
 
@@ -173,8 +231,9 @@ export function getAdvantages(state: State): { [playerId: number]: number } {
         state.currentPlayerId = playerId * -1 as PlayerId;
         const { sequences } = getSequences(state);
         sum += sequences.length;
-        // console.log(playerId, sequences)
+        console.log(playerId, sequences)
         return sequences.length;
     })
+    console.log("----------------");
     return PLAYER_IDS.reduce((a, e, i) => ({ ...a, [e]: sequencesLengthes[i] }), { sum });
 }
