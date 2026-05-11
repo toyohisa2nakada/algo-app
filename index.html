@@ -28,12 +28,12 @@
 
     <!-- 相手の手札エリア -->
     <div id="enemy-hand-ui"
-      class="hand-area relative h-[90px] w-full bg-black/[0.03] overflow-x-auto overflow-y-hidden whitespace-nowrap [-webkit-overflow-scrolling:touch] [scrollbar-width:none]">
+      class="shrink-0 hand-area relative h-[90px] w-full bg-black/[0.03] overflow-x-auto overflow-y-hidden whitespace-nowrap [-webkit-overflow-scrolling:touch] [scrollbar-width:none]">
       <div id="enemy-hand-inner" class="relative min-w-full h-full"></div>
     </div>
 
     <!-- 中央エリア（デッキ・未確定カード・コントロール） -->
-    <div class="relative flex justify-center items-center gap-5 h-[100px] w-4/5">
+    <div class="shrink-0 relative flex justify-center items-center gap-5 h-[100px] w-4/5">
 
       <!-- 未確定カードのスポット -->
       <div id="unsettled-spot"
@@ -68,7 +68,7 @@
 
     <!-- プレイヤーの手札エリア -->
     <div id="player-hand-ui"
-      class="hand-area relative h-[90px] w-full bg-black/[0.03] overflow-x-auto overflow-y-hidden whitespace-nowrap [-webkit-overflow-scrolling:touch] [scrollbar-width:none]">
+      class="shrink-0 hand-area relative h-[90px] w-full bg-black/[0.03] overflow-x-auto overflow-y-hidden whitespace-nowrap [-webkit-overflow-scrolling:touch] [scrollbar-width:none]">
       <div id="player-hand-inner" class="relative min-w-full h-full"></div>
     </div>
   </div>
@@ -311,7 +311,7 @@
         updateDeckVisual();
         const pCard = deck.pop();
         const pEl = getCardEl(pCard, document.body);
-        pEl.style.left = '45%'; pEl.style.top = '20%';
+        pEl.style.left = '45%'; pEl.style.top = '30%';
         dealerCards.push({ data: pCard, el: pEl });
         await wait(800);
         const eCard = deck.pop();
@@ -456,7 +456,7 @@
       const tEl = document.getElementById(selectedAction.targetCard.id);
       const tRect = tEl.getBoundingClientRect();
       eEl.style.left = `${tRect.left}px`;
-      eEl.style.top = `${tRect.top - tRect.height - 20}px`;
+      eEl.style.top = `${tRect.top - tRect.height + 10}px`;
       await wait(1200);
       UI.log.innerText = `相手の宣言: ${selectedAction.targetNumber}`;
       await wait(1000);
